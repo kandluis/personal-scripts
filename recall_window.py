@@ -54,12 +54,15 @@ def open_appwindow(app, x, y, w, h):
     else:
         option = ""
 
+    # Fix certain apps that don't work. 
     app = "subl" if "sublime" in app else app
-    subprocess.Popen(["/bin/bash", "-c", app + option])
-    # fix exception for Chrome and for Sublime 
-    # (command = google-chrome-stable, but processname = chrome)
-    # (command = subl but processname = sublime)
-    app = "chrome" if "chrome" in app else app
+    app = "google-chrome-stable" if "chrome" in app else app
+    print("Launching {} application...".format(app))
+    try:
+        subprocess.Popen(["/bin/bash", "-c", app + option])
+    except:
+        print("Failed to launch...")
+        return;
     while t < 30:
         ws2 = [w.split()[0:3]
                for w in get("wmctrl -lp").splitlines() if not w in ws1]
@@ -94,3 +97,5 @@ if arg == "-run":
     run_remembered()
 elif arg == "-read":
     read_windows()
+else:
+    print("Command not accepted")
