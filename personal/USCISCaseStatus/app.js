@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-25 11:14:00
+* @Last Modified time: 2016-08-25 13:57:44
 */
 
 'use strict';
@@ -11,17 +11,21 @@ var _ = require('lodash')
   , async = require('async')
   , assert = require('assert')
   , debug = require("debug")("USCIS:app")
+  , moment = require("moment")
+  , fs = require("fs")
   , htmlparser = require("htmlparser")
+  , json2csv = require("json2csv")
   , request = require('request')
   , select = require("soupselect").select;
 
 var argv = require('yargs')
-  .usage("Usage $0 -p IOE -n 0900677923 -t 1 -l 10")
+  .usage("Usage $0 -p IOE -n 0900677923 -t 1 -l 10 -o out.csv")
   .help('h')
   .describe("p", "The prefix used for the case numbers.")
   .describe("n", "The case number from which to start the search.")
   .describe("t", "The total number of cases to query.")
   .describe("l", "The total number of request to make at once.")
+  .describe("o", "The output file name")
   .demand(["p", "n"])
   .number("n")
   .number("t")
@@ -76,10 +80,14 @@ var utils = {
 
   extract: function(dom, selector){
     var data = select(dom, selector);
-    assert(data.length === 1, true, "too many of " + selector);
+    if (data.length !== 1){
+      return null;
+    }
     data = data[0].children;
     if(data){
-      assert(data.length > 0, true, "no children of " + selector);
+      if(data.length === 0){
+        return null;
+      }
       return data[0].data;
     }
     return null;
@@ -97,14 +105,20 @@ var utils = {
     };
 
     function getDate(data){
+      var date;
       try{
         var seperated = data.split(",");
         var dateString = seperated.slice(0,2).join(", ");
         dateString = dateString.slice(3, dateString.length);
-        return new Date(dateString);
+        date = moment(dateString, "MMM DD  YYYY");
       } catch(e){
         console.log("error parsing date", e);
-        return Date.now();
+        date = moment();
+      }
+
+      return {
+        date: date,
+        string: date.format("dddd, MMMM Do YYYY")
       }
     };
 
@@ -123,6 +137,7 @@ var utils = {
    * @param  {String} [rawHTML] - Raw HTML of the page.
    */
   extractInfo: function(rawHTML, callback){
+    console.log(rawHTML);
     var handler = new htmlparser.DefaultHandler(function(err, dom){
       if(err){
         console.log("error parsing page");
@@ -183,39 +198,135 @@ var utils = {
         }));
       });
     });
+  },
+
+  /**
+   * Groups the result array into a single object by date buckets using res[].date.string and within each bucket groups by type using res[].type.
+   * @param  {Array} res - The input objects.
+   * @return {Object}     A object mapping dates to Array of objects.
+   */
+  group: function(res){
+    return _.reduce(res, function(acc, item){
+      var path = item.date.string + "." + item.type;
+      var value = _.get(acc, path, {
+        items: [],
+        total: 0,
+        type: item.type,
+        date: item.date.string
+      });
+      value.items.push(item);
+      value.total++;
+      return _.set(acc, path, value);
+    }, {});
+  },
+
+  writeStats: function(groups){
+    _.forEach(groups, function(types, date){
+      console.log("Statistics for", date);
+      _.forEach(types, function(data, type){
+        console.log("\tApplications of Type:", type);
+        console.log("\tTotal count:", data.total);
+
+      });
+      console.log("***************************")
+    });
   }
 };
 
-function main() {
-  var params = _.times(argv.t, function(index){
-    return argv.p + utils.pad(_.add(parseInt(argv.n), index), Const.caseNumLength);
+var options = {
+  total: argv.t,
+  prefix: argv.p,
+  start: argv.n,
+  limit: argv.l,
+  outfile: argv.o
+};
+
+/**
+ * Exported api. Note that this writes out the successful results from a single run to a csv.
+ * @param  {Object} options - The options object.
+ * @param {Number} options.total - The total number of cases to sequentially query.
+ * @param {String} options.prefix - The case prefix. eg IOE, NSC, etc.
+ * @param {Number} options.start - The case number from which to start the data collection.
+ * @param {Number} options.limit - The number of asynchronous calls to make.
+ * @param {String} options.outfile - The file to which the aggregate results should be output.
+ * @param {Function} fbc - final node-style callback.
+ * @return {[type]}         [description]
+ */
+function run(options, fcb) {
+  if(options.total)
+  var params = _.times(options.total, function(index){
+    return options.prefix + utils.pad(_.add(parseInt(options.start), index), Const.caseNumLength);
   })
 
-  async.mapLimit(params, argv.l, utils.retrieveCaseStatus, function(err, res){
+  async.mapLimit(params, options.limit, utils.retrieveCaseStatus, function(err, res){
     if(err){
       console.log(err);
     }
 
-    // lets collect some stats
-    var bioNum = _.filter(res, function(item){
-      return item.type == "BIO";
-    }).length;
-    var receiptNum = _.filter(res, function(item){
-      return item.type == "NOTICE";
-    }).length;
-    var approvedNum = _.filter(res, function(item){
-      return item.type == "APPROVED";
-    }).length;
-    var unknown = _.filter(res, function(item){
-      return item.type == "UNKNOWN";
-    }).length;
-    var failed = res.length - bioNum - receiptNum - approvedNum - unknown;
-    console.log("bio:", bioNum);
-    console.log("receipt:", receiptNum);
-    console.log("approved:", approvedNum);
-    console.log("unknown:", unknown);
-    console.log("failed:", failed);
+    if(res.length > 0){
+      // write out results based on time of day
+      var outfile = moment().unix();
+      var outData = _.sortBy(_.map(res, function(item){
+        return {
+          Date: item.date,
+          Type: item.type,
+          "Case Number": item.caseNum
+        };
+      }), _.partial(_.get, _, 'Date'));
+      var outCSV = json2csv({ data: outData });
+      fs.writeFile("./temp/" + outfile + ".csv", outCSV, function(err){
+        if (err){
+          console.log("failed to save file", err);
+        }
+      });
+
+      // group by date > type
+      var groups = utils.group(res);
+      debug("grouped", groups);
+
+      if (argv.o){
+        var csvData = _.sortBy(_.flatten(_.map(_.values(groups), function(item){
+          return _.map(_.values(item), function(_item){
+            return {
+              Date: _item.date,
+              Type: _item.type,
+              Applications: _item.total
+            };
+          });
+        })), function(item){
+          return item.date
+        });
+
+        if (csvData.length > 0){
+          var csv = json2csv({ data: csvData });
+          fs.writeFile(argv.o, csv, function(err){
+            if (err){
+              console.log("failed to save file", err);
+            }
+          });
+        }
+      }
+
+      utils.writeStats(groups);
+
+      fcb(null, groups);
+    }
+    else{
+      fcb("No results");
+    }
   });
 }
 
-main();
+var options = {
+  total: argv.t,
+  prefix: argv.p,
+  start: argv.n,
+  limit: argv.l,
+  outfile: argv.o
+};
+
+run(options, function(err, res){
+  if(err){
+    console.log(err);
+  }
+});

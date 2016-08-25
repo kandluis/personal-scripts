@@ -19,7 +19,9 @@
     "async": "^2.0.1",
     "debug": "^2.2.0",
     "htmlparser": "^1.7.7",
+    "json2csv": "^3.6.3",
     "lodash": "^4.15.0",
+    "moment": "^2.14.1",
     "request": "^2.74.0",
     "soupselect": "^0.2.0",
     "yargs": "^5.0.0"
