@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-26 09:37:46
+* @Last Modified time: 2016-08-26 09:48:09
 */
 
 'use strict';
@@ -223,12 +223,26 @@ var utils = {
   },
 
   writeStats: function(groups){
-    _.forEach(groups, function(types, date){
+    // sort them by date for display purposes!
+    var sortedGroups = _.sortBy(_.map(groups, function(value, key){
+      return _.extend(value, {
+        _metadata: {
+          dateString: key,
+          unix: moment(key, "dddd, MMMM Do YYYY").unix()
+        }
+      });
+    }), function(item){
+      return _.get(item, '_metadata.unix');
+    });
+
+    _.forEach(sortedGroups, function(types){
+      var date = _.get(types, '_metadata.dateString');
       console.log("Statistics for", date);
       _.forEach(types, function(data, type){
-        console.log("\tApplications of Type:", type);
-        console.log("\tTotal count:", data.total);
-
+        if (type !== "_metadata"){
+          console.log("\tApplications of Type:", type);
+          console.log("\t\tTotal count:", data.total);
+        }
       });
       console.log("***************************")
     });
