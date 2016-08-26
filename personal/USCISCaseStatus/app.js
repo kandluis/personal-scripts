@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-25 13:57:44
+* @Last Modified time: 2016-08-25 21:34:56
 */
 
 'use strict';
@@ -66,7 +66,8 @@ var titleToType = {
   "Decision Notice Mailed": "APPROVED",
   "Request for Additional Evidence Was Mailed": "EVIDENCE_REQUEST",
   "Card Was Delivered To Me By The Post Office": "CARD_DELIVERED",
-  "Interview Was Scheduled": "INTERVIEW"
+  "Interview Was Scheduled": "INTERVIEW",
+  "Withdrawal Acknowledgement Notice Was Sent": "WITHDRAWN"
 };
 
 var utils = {
@@ -93,6 +94,23 @@ var utils = {
     return null;
   },
 
+  getDate: function(data){
+    var date;
+    try{
+      var seperated = data.split(",");
+      var dateString = seperated.slice(0,2).join(", ");
+      dateString = dateString.slice(3, dateString.length);
+      date = moment(dateString, "MMM DD  YYYY");
+    } catch(e){
+      date = moment();
+    }
+
+    return {
+      date: date,
+      string: date.format("dddd, MMMM Do YYYY")
+    }
+  },
+
   infoParser: function(text, title) {
     function getType(key){
       if (_.has(titleToType, key)){
@@ -104,31 +122,13 @@ var utils = {
       }
     };
 
-    function getDate(data){
-      var date;
-      try{
-        var seperated = data.split(",");
-        var dateString = seperated.slice(0,2).join(", ");
-        dateString = dateString.slice(3, dateString.length);
-        date = moment(dateString, "MMM DD  YYYY");
-      } catch(e){
-        console.log("error parsing date", e);
-        date = moment();
-      }
-
-      return {
-        date: date,
-        string: date.format("dddd, MMMM Do YYYY")
-      }
-    };
-
     return {
       data: {
         raw: text,
         heading: title
       },
       type: getType(title),
-      date: getDate(text)
+      date: utils.getDate(text)
     }
   },
 
@@ -137,7 +137,7 @@ var utils = {
    * @param  {String} [rawHTML] - Raw HTML of the page.
    */
   extractInfo: function(rawHTML, callback){
-    console.log(rawHTML);
+    // console.log(rawHTML);
     var handler = new htmlparser.DefaultHandler(function(err, dom){
       if(err){
         console.log("error parsing page");
@@ -176,24 +176,25 @@ var utils = {
         UpgradeInsecureRequests: 1
       }
     }, function(err, res){
+      var defaultReturn = {
+        caseNum: caseNum,
+        type: "FAILED",
+        date: utils.getDate(),
+        data: {}
+      };
+
       if(err){
         console.log("initial retrieval failed for case", caseNum);
-        return callback(null, {
-          caseNum: caseNum,
-          type: "FAILED"
-        });
+        return callback(null, defaultReturn);
       }
 
       return utils.extractInfo(res.body, function(err, res){
         if(err){
           debug("extracting info failed for case", caseNum);
           // salvage results
-          return callback(null, {
-            caseNum: caseNum,
-            type: "FAILED"
-          });
+          return callback(null, defaultReturn);
         }
-        return callback(null, _.extend({}, res, {
+        return callback(null, _.extend({},defaultReturn, res, {
           caseNum: caseNum
         }));
       });
@@ -274,7 +275,7 @@ function run(options, fcb) {
         };
       }), _.partial(_.get, _, 'Date'));
       var outCSV = json2csv({ data: outData });
-      fs.writeFile("./temp/" + outfile + ".csv", outCSV, function(err){
+      fs.writeFile("temp_" + outfile + ".csv", outCSV, function(err){
         if (err){
           console.log("failed to save file", err);
         }
