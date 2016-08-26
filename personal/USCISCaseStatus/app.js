@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-25 21:34:56
+* @Last Modified time: 2016-08-25 22:11:17
 */
 
 'use strict';
@@ -269,7 +269,7 @@ function run(options, fcb) {
       var outfile = moment().unix();
       var outData = _.sortBy(_.map(res, function(item){
         return {
-          Date: item.date,
+          Date: item.date.string,
           Type: item.type,
           "Case Number": item.caseNum
         };
