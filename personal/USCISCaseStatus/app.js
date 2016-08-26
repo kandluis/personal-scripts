@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-25 22:11:17
+* @Last Modified time: 2016-08-26 09:37:46
 */
 
 'use strict';
@@ -213,7 +213,8 @@ var utils = {
         items: [],
         total: 0,
         type: item.type,
-        date: item.date.string
+        date: item.date.string,
+        unix: item.date.date.unix()
       });
       value.items.push(item);
       value.total++;
@@ -270,10 +271,11 @@ function run(options, fcb) {
       var outData = _.sortBy(_.map(res, function(item){
         return {
           Date: item.date.string,
+          "Unix Time": item.date.date.unix(),
           Type: item.type,
           "Case Number": item.caseNum
         };
-      }), _.partial(_.get, _, 'Date'));
+      }), _.partial(_.get, _, 'Unix Time'));
       var outCSV = json2csv({ data: outData });
       fs.writeFile("temp_" + outfile + ".csv", outCSV, function(err){
         if (err){
@@ -290,12 +292,13 @@ function run(options, fcb) {
           return _.map(_.values(item), function(_item){
             return {
               Date: _item.date,
+              "Unix Time": _item.unix,
               Type: _item.type,
               Applications: _item.total
             };
           });
         })), function(item){
-          return item.date
+          return _.get(item, "Unix Time");
         });
 
         if (csvData.length > 0){
