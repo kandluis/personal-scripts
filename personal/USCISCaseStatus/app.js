@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-26 15:12:28
+* @Last Modified time: 2016-08-26 15:15:05
 */
 
 'use strict';
@@ -324,7 +324,10 @@ var utils = {
       , end = _.get(data, 'end')
       , intervalSize = _.get(data, 'intervalSize');
 
-    if(current >= end || FAILED > Const.maxFailures){
+    if(current >= end || FAILED >= Const.maxFailures){
+      if(FAILED >= Const.maxFailures){
+        console.log("reached maximum number of failures! is the IP blocked?");
+      }
       return callback(null, acc);
     }
 
