@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-26 09:48:09
+* @Last Modified time: 2016-08-26 14:38:24
 */
 
 'use strict';
@@ -246,40 +246,18 @@ var utils = {
       });
       console.log("***************************")
     });
-  }
-};
+  },
 
-var options = {
-  total: argv.t,
-  prefix: argv.p,
-  start: argv.n,
-  limit: argv.l,
-  outfile: argv.o
-};
-
-/**
- * Exported api. Note that this writes out the successful results from a single run to a csv.
- * @param  {Object} options - The options object.
- * @param {Number} options.total - The total number of cases to sequentially query.
- * @param {String} options.prefix - The case prefix. eg IOE, NSC, etc.
- * @param {Number} options.start - The case number from which to start the data collection.
- * @param {Number} options.limit - The number of asynchronous calls to make.
- * @param {String} options.outfile - The file to which the aggregate results should be output.
- * @param {Function} fbc - final node-style callback.
- * @return {[type]}         [description]
- */
-function run(options, fcb) {
-  if(options.total)
-  var params = _.times(options.total, function(index){
-    return options.prefix + utils.pad(_.add(parseInt(options.start), index), Const.caseNumLength);
-  })
-
-  async.mapLimit(params, options.limit, utils.retrieveCaseStatus, function(err, res){
-    if(err){
-      console.log(err);
-    }
-
+  /**
+   * The name indicates what it does.
+   * @param  {Array} res - Final array of accumulated results!
+   * @return {Object}     Hash-table groupings
+   *
+   * @see Side-effects of output files and console.log!
+   */
+  processFinalResults: function(res){
     if(res.length > 0){
+
       // write out results based on time of day
       var outfile = moment().unix();
       var outData = _.sortBy(_.map(res, function(item){
@@ -301,6 +279,7 @@ function run(options, fcb) {
       var groups = utils.group(res);
       debug("grouped", groups);
 
+      // Write output to file if specified
       if (argv.o){
         var csvData = _.sortBy(_.flatten(_.map(_.values(groups), function(item){
           return _.map(_.values(item), function(_item){
@@ -325,13 +304,90 @@ function run(options, fcb) {
         }
       }
 
+      // write out the grouped statistics to console
       utils.writeStats(groups);
 
-      fcb(null, groups);
+      return groups;
     }
-    else{
-      fcb("No results");
+
+    // no results
+    return {};
+  },
+
+  recursiveHelper: function(data, current, acc, callback){
+    var prefix = _.get(data, 'prefix')
+      , end = _.get(data, 'end')
+      , intervalSize = _.get(data, 'intervalSize');
+
+    if(current >= end){
+      return callback(null, acc);
     }
+
+    var params = utils.getParams(prefix, current, intervalSize);
+    console.log("processing of cases starting at", current);
+
+    async.map(params, utils.retrieveCaseStatus, function(err, res){
+      var newCurrent = current + intervalSize;
+      console.log("finished calls of cases up to", newCurrent);
+      var fn = _.partial(utils.recursiveHelper, data, newCurrent, _, callback);
+      if(err){
+        // ignore errors
+        return fn(acc);
+      }
+
+      return fn(_.concat(acc, res));
+    });
+  },
+
+  /**
+   * Retrieves parameters for retrieveCaseStatus function
+   * @param  {String} prefix - Case status prefix.
+   * @param  {Number} start  - Beginning case number.
+   * @param  {Number} number - Total cases to query.
+   * @return {Array}        - Array of params.
+   */
+  getParams: function(prefix, start, number){
+    return _.times(number, function(index){
+      return prefix + utils.pad(_.add(parseInt(start), index), Const.caseNumLength);
+    });
+  }
+};
+
+var options = {
+  total: argv.t,
+  prefix: argv.p,
+  start: argv.n,
+  limit: argv.l,
+  outfile: argv.o
+};
+
+/**
+ * Exported api. Note that this writes out the successful results from a single run to a csv.
+ * @param  {Object} options - The options object.
+ * @param {Number} options.total - The total number of cases to sequentially query.
+ * @param {String} options.prefix - The case prefix. eg IOE, NSC, etc.
+ * @param {Number} options.start - The case number from which to start the data collection.
+ * @param {Number} options.limit - The number of asynchronous calls to make.
+ * @param {String} options.outfile - The file to which the aggregate results should be output.
+ * @param {Function} callback - final node-style callback.
+ * @return {[type]}         [description]
+ */
+function run(options, callback) {
+  console.log("startings...");
+
+  var start = parseInt(options.start);
+  var data = {
+    prefix: options.prefix,
+    intervalSize: parseInt(options.limit),
+    end: start + parseInt(options.total)
+  };
+
+  return utils.recursiveHelper(data, start, [], function(err, res){
+    console.log("completed all results! total of", res.length);
+    console.log("starting final processing");
+    var hash = utils.processFinalResults(res);
+    console.log("completed final processing");
+    callback(err, hash);
   });
 }
 
