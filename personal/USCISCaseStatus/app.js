@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-26 14:38:24
+* @Last Modified time: 2016-08-26 14:40:20
 */
 
 'use strict';
@@ -67,7 +67,8 @@ var titleToType = {
   "Request for Additional Evidence Was Mailed": "EVIDENCE_REQUEST",
   "Card Was Delivered To Me By The Post Office": "CARD_DELIVERED",
   "Interview Was Scheduled": "INTERVIEW",
-  "Withdrawal Acknowledgement Notice Was Sent": "WITHDRAWN"
+  "Withdrawal Acknowledgement Notice Was Sent": "WITHDRAWN",
+  "Notice Explaining USCIS' Actions Was Mailed": "EXPLAIN"
 };
 
 var utils = {
