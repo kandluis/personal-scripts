@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-26 15:07:04
+* @Last Modified time: 2016-08-26 15:09:28
 */
 
 'use strict';
@@ -191,11 +191,11 @@ var utils = {
 
       return utils.extractInfo(res.body, function(err, res){
         if(err){
-          debug("extracting info failed for case", caseNum);
+          console.log("extracting info failed for case", caseNum);
           // salvage results
           return callback(null, defaultReturn);
         }
-        return callback(null, _.extend({},defaultReturn, res, {
+        return callback(null, _.extend({}, defaultReturn, res, {
           caseNum: caseNum
         }));
       });
@@ -330,7 +330,7 @@ var utils = {
 
     async.map(params, utils.retrieveCaseStatus, function(err, res){
       var newCurrent = current + intervalSize;
-      var secondsPassed = (moment().unix() - startTime.unix()) / 1000;
+      var secondsPassed = (moment().unix() - startTime.unix());
       console.log("finished calls of cases up to", newCurrent, "in a total of", secondsPassed, "seconds");
       var fn = _.partial(utils.recursiveHelper, data, newCurrent, _, callback);
       if(err){
