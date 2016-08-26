@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-26 14:40:20
+* @Last Modified time: 2016-08-26 15:07:04
 */
 
 'use strict';
@@ -325,11 +325,13 @@ var utils = {
     }
 
     var params = utils.getParams(prefix, current, intervalSize);
+    var startTime = moment();
     console.log("processing of cases starting at", current);
 
     async.map(params, utils.retrieveCaseStatus, function(err, res){
       var newCurrent = current + intervalSize;
-      console.log("finished calls of cases up to", newCurrent);
+      var secondsPassed = (moment().unix() - startTime.unix()) / 1000;
+      console.log("finished calls of cases up to", newCurrent, "in a total of", secondsPassed, "seconds");
       var fn = _.partial(utils.recursiveHelper, data, newCurrent, _, callback);
       if(err){
         // ignore errors
