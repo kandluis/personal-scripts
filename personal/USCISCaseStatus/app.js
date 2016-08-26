@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-26 15:09:28
+* @Last Modified time: 2016-08-26 15:12:28
 */
 
 'use strict';
@@ -43,7 +43,10 @@ var argv = require('yargs')
   .alias("h", "help")
   .argv;
 
+var FAILED = 0;
+
 var Const = {
+  maxFailures: 100,
   url: "https://egov.uscis.gov/casestatus/mycasestatus.do",
   method: "POST",
   formDataDefaults: {
@@ -192,7 +195,8 @@ var utils = {
       return utils.extractInfo(res.body, function(err, res){
         if(err){
           console.log("extracting info failed for case", caseNum);
-          // salvage results
+          // salvage results, keep count of failed
+          FAILED++;
           return callback(null, defaultReturn);
         }
         return callback(null, _.extend({}, defaultReturn, res, {
@@ -320,7 +324,7 @@ var utils = {
       , end = _.get(data, 'end')
       , intervalSize = _.get(data, 'intervalSize');
 
-    if(current >= end){
+    if(current >= end || FAILED > Const.maxFailures){
       return callback(null, acc);
     }
 
