@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-28 11:44:55
+* @Last Modified time: 2016-08-28 11:48:00
 */
 
 'use strict';
@@ -409,19 +409,19 @@ var utils = {
 
     if(current >= end || BLOCKED){
       if(BLOCKED){
-        console.log("IP has been blocked!");
+        console.log("\n\nERROR: IP has been blocked!\n\n");
       }
       return callback(null, acc);
     }
 
     var params = utils.getParams(prefix, current, intervalSize);
     var startTime = moment();
-    console.log("processing of cases starting at", current);
+    console.log("Processing of cases starting at", current, "...");
 
     async.map(params, utils.retrieveCaseStatus, function(err, res){
       var newCurrent = current + intervalSize;
       var secondsPassed = (moment().unix() - startTime.unix());
-      console.log("finished calls of cases up to", newCurrent, "in a total of", secondsPassed, "seconds");
+      console.log("Finished calls of cases up to", newCurrent, "in a total of", secondsPassed, "seconds.");
       var fn = _.partial(utils.recursiveHelper, data, newCurrent, _, callback);
       if(err){
         // ignore errors
@@ -466,7 +466,7 @@ var options = {
  * @return {[type]}         [description]
  */
 function run(options, callback) {
-  console.log("startings...");
+  console.log("Starting...\n");
 
   var start = parseInt(options.start);
   var data = {
@@ -476,10 +476,12 @@ function run(options, callback) {
   };
 
   return utils.recursiveHelper(data, start, [], function(err, res){
-    console.log("completed all results! total of", res.length);
-    console.log("starting final processing");
+    console.log("\nCompleted all results! total of", res.length);
+    console.log("Starting final processing!\n");
+    var start = moment().unix();
     var hash = utils.processFinalResults(res);
-    console.log("completed final processing");
+    var end = moment().unix();
+    console.log("\nCompleted final processing in", end-start, "seconds.");
     callback(err, hash);
   });
 }
