@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-28 11:48:00
+* @Last Modified time: 2016-08-28 11:50:17
 */
 
 'use strict';
@@ -52,7 +52,7 @@ var results = [];
 
 // On Ctrl-C, for graceful shutdown!
 process.on( 'SIGINT', function() {
-  console.log( "\nGracefully shutting down from SIGINT (Ctrl-C)" );
+  console.log( "\nGracefully shutting down from SIGINT (Ctrl-C)\n" );
 
   // Done for the side-effects!
   utils.processFinalResults(results);
