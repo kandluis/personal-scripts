@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-26 15:15:05
+* @Last Modified time: 2016-08-28 07:57:27
 */
 
 'use strict';
@@ -68,10 +68,14 @@ var titleToType = {
   "Case Was Received and A Receipt Notice Was Emailed": "NOTICE",
   "Decision Notice Mailed": "APPROVED",
   "Request for Additional Evidence Was Mailed": "EVIDENCE_REQUEST",
-  "Card Was Delivered To Me By The Post Office": "CARD_DELIVERED",
+  "Card Was Delivered To Me By The Post Office": "APPROVED",
   "Interview Was Scheduled": "INTERVIEW",
   "Withdrawal Acknowledgement Notice Was Sent": "WITHDRAWN",
-  "Notice Explaining USCIS' Actions Was Mailed": "EXPLAIN"
+  "Notice Explaining USCIS' Actions Was Mailed": "EXPLAIN",
+  "Card Is Being Produced": "APPROVED",
+  "Case Approved": "APPROVED",
+  "Case Was Approved": "APPROVED",
+  "Response To USCIS' Request For Evidence Was Received": "EVIDENCE_REQUEST"
 };
 
 var utils = {
