@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-28 11:16:31
+* @Last Modified time: 2016-08-28 11:17:15
 */
 
 'use strict';
@@ -168,7 +168,7 @@ var utils = {
 
     console.log("unknown error type", label);
     return "UNKNOWN";
-  }
+  },
 
   /**
    * Extracts the information for each case from the raw HTML retrieved.
