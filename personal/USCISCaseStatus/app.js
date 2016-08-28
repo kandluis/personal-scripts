@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-28 11:17:15
+* @Last Modified time: 2016-08-28 11:44:55
 */
 
 'use strict';
@@ -43,7 +43,22 @@ var argv = require('yargs')
   .alias("h", "help")
   .argv;
 
+// GLOBALS
+// DETECT IP BLOCK
 var BLOCKED = false;
+
+// ACCUMULATE RESULTS FOR EVENTUAL GRACEFUL SHUTDOWN
+var results = [];
+
+// On Ctrl-C, for graceful shutdown!
+process.on( 'SIGINT', function() {
+  console.log( "\nGracefully shutting down from SIGINT (Ctrl-C)" );
+
+  // Done for the side-effects!
+  utils.processFinalResults(results);
+
+  process.exit(0);
+})
 
 var Const = {
   maxFailures: 100,
@@ -63,19 +78,23 @@ var Const = {
   caseNumLength: 10
 };
 
+// Maps USCIS case status to local types.
 var titleToType = {
   "Biometrics Appointment Was Scheduled": "BIO",
   "Case Was Received and A Receipt Notice Was Emailed": "NOTICE",
   "Decision Notice Mailed": "APPROVED",
   "Request for Additional Evidence Was Mailed": "EVIDENCE_REQUEST",
-  "Card Was Delivered To Me By The Post Office": "APPROVED",
+  "Card Was Delivered To Me By The Post Office": "CARD_ISSUED",
   "Interview Was Scheduled": "INTERVIEW",
   "Withdrawal Acknowledgement Notice Was Sent": "WITHDRAWN",
   "Notice Explaining USCIS' Actions Was Mailed": "EXPLAIN",
-  "Card Is Being Produced": "APPROVED",
+  "Card Is Being Produced": "CARD_ISSUED",
   "Case Approved": "APPROVED",
   "Case Was Approved": "APPROVED",
-  "Response To USCIS' Request For Evidence Was Received": "EVIDENCE_REQUEST"
+  "Response To USCIS' Request For Evidence Was Received": "EVIDENCE_REQUEST",
+  "Card Was Produced": "CARD_ISSUED",
+  "Case Was Suspended Because My Fee Was Returned by My Bank": "SUSPENDED",
+  "Case Rejected Because I Sent An Incorrect Fee": "REJECTED"
 };
 
 var utils = {
@@ -238,6 +257,9 @@ var utils = {
           }
           else if (err.type == "NOT_FOUND"){
             console.log(caseNum, "does not exists!");
+            defaultReturn = _.extend({
+              type: "NEXIST"
+            });
           }
 
           return callback(null, defaultReturn);
@@ -255,19 +277,25 @@ var utils = {
    * @return {Object}     A object mapping dates to Array of objects.
    */
   group: function(res){
-    return _.reduce(res, function(acc, item){
-      var path = item.date.string + "." + item.type;
+    var res2 = _.reduce(res, function(acc, item){
+      var date = _.get(item, "date.date", moment());
+      var dateString = _.get(item, "date.string", moment().format("dddd, MMMM Do YYYY"));
+      var type = _.get(item, "type", "UNKNOWN");
+
+      var path = dateString + "." + type;
       var value = _.get(acc, path, {
         items: [],
         total: 0,
-        type: item.type,
-        date: item.date.string,
-        unix: item.date.date.unix()
+        type: type,
+        date: dateString,
+        unix: date.unix()
       });
       value.items.push(item);
       value.total++;
       return _.set(acc, path, value);
     }, {});
+
+    return res2;
   },
 
   writeStats: function(groups){
@@ -309,11 +337,15 @@ var utils = {
       // write out results based on time of day
       var outfile = moment().unix();
       var outData = _.sortBy(_.map(res, function(item){
+        var date = _.get(item, "date.date", moment());
+        var dateString = _.get(item, "date.string", moment().format("dddd, MMMM Do YYYY"));
+        var type = _.get(item, "type", "UNKNOWN");
+
         return {
-          Date: item.date.string,
-          "Unix Time": item.date.date.unix(),
-          Type: item.type,
-          "Case Number": item.caseNum
+          Date: dateString,
+          "Unix Time": date.unix(),
+          Type: type,
+          "Case Number": _.get(item, "caseNum")
         };
       }), _.partial(_.get, _, 'Unix Time'));
       var outCSV = json2csv({ data: outData });
@@ -331,11 +363,15 @@ var utils = {
       if (argv.o){
         var csvData = _.sortBy(_.flatten(_.map(_.values(groups), function(item){
           return _.map(_.values(item), function(_item){
+            var dateString = _.get(_item, "date", moment().format("dddd, MMMM Do YYYY"));
+            var type = _.get(_item, "type", "UNKNOWN");
+            var unixTime = _.get(_item, "unix", moment().unix());
+
             return {
-              Date: _item.date,
-              "Unix Time": _item.unix,
-              Type: _item.type,
-              Applications: _item.total
+              Date: dateString,
+              "Unix Time": unixTime,
+              Type: type,
+              Applications: _.get(_item, "total", 0)
             };
           });
         })), function(item){
@@ -363,6 +399,10 @@ var utils = {
   },
 
   recursiveHelper: function(data, current, acc, callback){
+    // copy the acc value over to a global so we can do
+    // a graceful shutdown
+    results = acc;
+
     var prefix = _.get(data, 'prefix')
       , end = _.get(data, 'end')
       , intervalSize = _.get(data, 'intervalSize');
@@ -374,7 +414,6 @@ var utils = {
       return callback(null, acc);
     }
 
-    console.log("getting params");
     var params = utils.getParams(prefix, current, intervalSize);
     var startTime = moment();
     console.log("processing of cases starting at", current);
