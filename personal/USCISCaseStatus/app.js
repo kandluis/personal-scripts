@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-28 07:57:27
+* @Last Modified time: 2016-08-28 10:16:31
 */
 
 'use strict';
@@ -90,15 +90,19 @@ var utils = {
   extract: function(dom, selector){
     var data = select(dom, selector);
     if (data.length !== 1){
+      debug("wrong data length! expected 1!", data);
       return null;
     }
-    data = data[0].children;
-    if(data){
-      if(data.length === 0){
+    var tmpdata = data[0].children;
+    if(tmpdata){
+      if(tmpdata.length === 0){
+        debug("wring data lenght! expected > 1", tmpdata)
         return null;
       }
-      return data[0].data;
+      return tmpdata[0].data;
     }
+
+    debug("undefined data. parent:", data);
     return null;
   },
 
@@ -157,6 +161,7 @@ var utils = {
       var title = utils.extract(dom, titleSelector);
       var text = utils.extract(dom, textSelector);
       if(!title || !text){
+        debug("extract failed! rawHTML", rawHTML);
         return callback({
           msg: "info extraction failed"
         });
@@ -193,12 +198,14 @@ var utils = {
 
       if(err){
         console.log("initial retrieval failed for case", caseNum);
+        debug(err);
         return callback(null, defaultReturn);
       }
 
       return utils.extractInfo(res.body, function(err, res){
         if(err){
           console.log("extracting info failed for case", caseNum);
+          debug(err);
           // salvage results, keep count of failed
           FAILED++;
           return callback(null, defaultReturn);
@@ -335,6 +342,7 @@ var utils = {
       return callback(null, acc);
     }
 
+    console.log("getting params");
     var params = utils.getParams(prefix, current, intervalSize);
     var startTime = moment();
     console.log("processing of cases starting at", current);
