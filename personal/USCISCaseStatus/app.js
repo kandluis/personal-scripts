@@ -2,7 +2,7 @@
 * @Author: Luis Perez
 * @Date:   2016-08-24 16:12:46
 * @Last Modified by:   Luis Perez
-* @Last Modified time: 2016-08-28 10:16:31
+* @Last Modified time: 2016-08-28 11:16:31
 */
 
 'use strict';
@@ -43,7 +43,7 @@ var argv = require('yargs')
   .alias("h", "help")
   .argv;
 
-var FAILED = 0;
+var BLOCKED = false;
 
 var Const = {
   maxFailures: 100,
@@ -145,6 +145,32 @@ var utils = {
   },
 
   /**
+   * Extraction of key information has failed. Attempts to determine
+   * the reason for this failure.
+   * @param  {Object} dom - HTML DOM of page with error.
+   * @return {String}     - One of {"UNKNOW", "BLOCKED", or "NOT_FOUND"}
+   */
+  getErrorType: function(dom){
+    // check for <label for="accessviolation";
+    var label = select(dom, "label");
+    var labelFor = _.get(label, "0.attribs.for", null);
+    if (labelFor == "accessviolation"){
+      return "BLOCKED";
+    }
+
+    if (labelFor == "receipt_number"){
+      var error = select(dom, "#formErrorMessages h4");
+      var msg = _.get(error, "0.children.0.raw").split(" ");
+      if (msg[0] == "Validation"){
+        return "NOT_FOUND";
+      }
+    }
+
+    console.log("unknown error type", label);
+    return "UNKNOWN";
+  }
+
+  /**
    * Extracts the information for each case from the raw HTML retrieved.
    * @param  {String} [rawHTML] - Raw HTML of the page.
    */
@@ -161,8 +187,11 @@ var utils = {
       var title = utils.extract(dom, titleSelector);
       var text = utils.extract(dom, textSelector);
       if(!title || !text){
-        debug("extract failed! rawHTML", rawHTML);
+        debug("initial extraction failed! attempt salvage!");
+
+        var type = utils.getErrorType(dom);
         return callback({
+          type: type,
           msg: "info extraction failed"
         });
       }
@@ -204,10 +233,13 @@ var utils = {
 
       return utils.extractInfo(res.body, function(err, res){
         if(err){
-          console.log("extracting info failed for case", caseNum);
-          debug(err);
-          // salvage results, keep count of failed
-          FAILED++;
+          if(err.type == "BLOCKED"){
+            BLOCKED = true;
+          }
+          else if (err.type == "NOT_FOUND"){
+            console.log(caseNum, "does not exists!");
+          }
+
           return callback(null, defaultReturn);
         }
         return callback(null, _.extend({}, defaultReturn, res, {
@@ -335,9 +367,9 @@ var utils = {
       , end = _.get(data, 'end')
       , intervalSize = _.get(data, 'intervalSize');
 
-    if(current >= end || FAILED >= Const.maxFailures){
-      if(FAILED >= Const.maxFailures){
-        console.log("reached maximum number of failures! is the IP blocked?");
+    if(current >= end || BLOCKED){
+      if(BLOCKED){
+        console.log("IP has been blocked!");
       }
       return callback(null, acc);
     }
